@@ -4,6 +4,8 @@ title: "CleanRL: Implementing PPO"
 
 # CleanRL: Implementing PPO
 
+This tutorial shows how to train [PPO](https://docs.cleanrl.dev/rl-algorithms/ppo/) agents on the [Pistonball](/environments/butterfly/pistonball/) environment ([Parallel](/api/parallel/)).
+
 ## Environment Setup
 To follow this tutorial, you will need to install the dependencies shown below. It is recommended to use a newly-created virtual environment to avoid dependency conflicts.
 ```{eval-rst}

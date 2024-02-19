@@ -1,27 +1,50 @@
-"""Uses Ray's RLLib to view trained agents playing Pistonball.
+"""Uses Ray's RLlib to view trained agents playing Pistonball.
 
 Author: Rohan (https://github.com/Rohan138)
 """
 
 import argparse
 import os
-from pathlib import Path
 
-import pickle5 as pickle
 import ray
 import supersuit as ss
 from PIL import Image
 from ray.rllib.algorithms.ppo import PPO
 from ray.rllib.env.wrappers.pettingzoo_env import PettingZooEnv
 from ray.rllib.models import ModelCatalog
+from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from ray.tune.registry import register_env
+from torch import nn
 
 from pettingzoo.butterfly import pistonball_v6
-from tutorials.Ray.rllib_pistonball import CNNModelV2
 
-raise NotImplementedError(
-    "There are currently bugs in this tutorial, we will fix them soon."
-)
+
+class CNNModelV2(TorchModelV2, nn.Module):
+    def __init__(self, obs_space, act_space, num_outputs, *args, **kwargs):
+        TorchModelV2.__init__(self, obs_space, act_space, num_outputs, *args, **kwargs)
+        nn.Module.__init__(self)
+        self.model = nn.Sequential(
+            nn.Conv2d(3, 32, [8, 8], stride=(4, 4)),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, [4, 4], stride=(2, 2)),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, [3, 3], stride=(1, 1)),
+            nn.ReLU(),
+            nn.Flatten(),
+            (nn.Linear(3136, 512)),
+            nn.ReLU(),
+        )
+        self.policy_fn = nn.Linear(512, num_outputs)
+        self.value_fn = nn.Linear(512, 1)
+
+    def forward(self, input_dict, state, seq_lens):
+        model_out = self.model(input_dict["obs"].permute(0, 3, 1, 2))
+        self._value_out = self.value_fn(model_out)
+        return self.policy_fn(model_out), state
+
+    def value_function(self):
+        return self._value_out.flatten()
+
 
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 
@@ -29,14 +52,17 @@ parser = argparse.ArgumentParser(
     description="Render pretrained policy loaded from checkpoint"
 )
 parser.add_argument(
-    "checkpoint_path",
+    "--checkpoint-path",
     help="Path to the checkpoint. This path will likely be something like this: `~/ray_results/pistonball_v6/PPO/PPO_pistonball_v6_660ce_00000_0_2021-06-11_12-30-57/checkpoint_000050/checkpoint-50`",
 )
 
 args = parser.parse_args()
 
+if args.checkpoint_path is None:
+    print("The following arguments are required: --checkpoint-path")
+    exit(0)
+
 checkpoint_path = os.path.expanduser(args.checkpoint_path)
-params_path = Path(checkpoint_path).parent.parent / "params.pkl"
 
 ModelCatalog.register_custom_model("CNNModelV2", CNNModelV2)
 
@@ -66,16 +92,10 @@ env = env_creator()
 env_name = "pistonball_v6"
 register_env(env_name, lambda config: PettingZooEnv(env_creator()))
 
-with open(params_path, "rb") as f:
-    config = pickle.load(f)
-    # num_workers not needed since we are not training
-    del config["num_workers"]
-    del config["num_gpus"]
 
-ray.init(num_cpus=8, num_gpus=1)
-PPOagent = PPO(env=env_name, config=config)
-PPOagent.restore(checkpoint_path)
+ray.init()
 
+PPOagent = PPO.from_checkpoint(checkpoint_path)
 
 reward_sum = 0
 frame_list = []
@@ -88,9 +108,7 @@ for agent in env.agent_iter():
     if termination or truncation:
         action = None
     else:
-        action, _, _ = PPOagent.get_policy("policy_0").compute_single_action(
-            observation
-        )
+        action = PPOagent.compute_single_action(observation)
 
     env.step(action)
     i += 1

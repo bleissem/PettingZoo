@@ -22,7 +22,7 @@ Contributing code is done through standard github methods:
 4. Submit a pull request. It will be reviewed by maintainers and they'll give feedback or make requests as applicable
 
 ### Considerations
-- Make sure existing tests pass (`pip install -e .[all]` and then run `pytest -v` -- may also need to `apt-get`/`brew` `install swig` and `AutoROM -v`)
+- Make sure existing tests pass (`pip install -e .[testing,all]` and then run `pytest -v` -- may also need to `apt-get`/`brew` `install swig` and `AutoROM -v`)
 - Make sure your new code is properly tested and fully-covered
 - Any fixes to environments should include fixes to the appropriate documentation
 - Changes to environment functionality should be avoided when reasonable, and when they occur the environment version must be bumped.
@@ -58,7 +58,7 @@ Tutorials are a crucial way to help people learn how to use PettingZoo and we gr
 - You should make a `.md` file for each tutorial within the above directory.
 - Each `.md` file should have an "Environment Setup" section and a "Code" section. The title should be of the format `<TUTORIAL_THEME>: <TUTORIAL_TOPIC>`.
 - The Environment Setup section should reference the `requirements.txt` file you created using `literalinclude`.
-- The Code section should reference the `.py` file you created using `literalinclude`. 
+- The Code section should reference the `.py` file you created using `literalinclude`.
 - `/docs/index.md` should be modified to include every new tutorial.
 
 ### Testing your tutorial

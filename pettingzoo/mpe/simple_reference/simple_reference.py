@@ -1,4 +1,4 @@
-# noqa
+# noqa: D212, D415
 """
 # Simple Reference
 
@@ -9,12 +9,12 @@
 
 This environment is part of the <a href='..'>MPE environments</a>. Please read that page first for general information.
 
-| Import             | `from pettingzoo.mpe import simple_reference_v2` |
+| Import             | `from pettingzoo.mpe import simple_reference_v3` |
 |--------------------|--------------------------------------------------|
 | Actions            | Discrete/Continuous                              |
 | Parallel API       | Yes                                              |
 | Manual Control     | No                                               |
-| Agents             | `agents= [adversary_0, agent_0,agent_1]`         |
+| Agents             | `agents= [agent_0, agent_1]`                     |
 | Agents             | 3                                                |
 | Action Shape       | (5)                                              |
 | Action Values      | Discrete(5)/Box(0.0, 1.0, (5))                   |
@@ -40,7 +40,7 @@ Agent continuous action space: `[no_action, move_left, move_right, move_down, mo
 
 
 ``` python
-simple_reference_v2.env(local_ratio=0.5, max_cycles=25, continuous_actions=False)
+simple_reference_v3.env(local_ratio=0.5, max_cycles=25, continuous_actions=False)
 ```
 
 
@@ -56,11 +56,10 @@ simple_reference_v2.env(local_ratio=0.5, max_cycles=25, continuous_actions=False
 import numpy as np
 from gymnasium.utils import EzPickle
 
+from pettingzoo.mpe._mpe_utils.core import Agent, Landmark, World
+from pettingzoo.mpe._mpe_utils.scenario import BaseScenario
+from pettingzoo.mpe._mpe_utils.simple_env import SimpleEnv, make_env
 from pettingzoo.utils.conversions import parallel_wrapper_fn
-
-from .._mpe_utils.core import Agent, Landmark, World
-from .._mpe_utils.scenario import BaseScenario
-from .._mpe_utils.simple_env import SimpleEnv, make_env
 
 
 class raw_env(SimpleEnv, EzPickle):
@@ -69,17 +68,18 @@ class raw_env(SimpleEnv, EzPickle):
     ):
         EzPickle.__init__(
             self,
-            local_ratio,
-            max_cycles,
-            continuous_actions,
-            render_mode,
+            local_ratio=local_ratio,
+            max_cycles=max_cycles,
+            continuous_actions=continuous_actions,
+            render_mode=render_mode,
         )
         assert (
             0.0 <= local_ratio <= 1.0
         ), "local_ratio is a proportion. Must be between 0 and 1."
         scenario = Scenario()
         world = scenario.make_world()
-        super().__init__(
+        SimpleEnv.__init__(
+            self,
             scenario=scenario,
             world=world,
             render_mode=render_mode,
@@ -87,7 +87,7 @@ class raw_env(SimpleEnv, EzPickle):
             continuous_actions=continuous_actions,
             local_ratio=local_ratio,
         )
-        self.metadata["name"] = "simple_reference_v2"
+        self.metadata["name"] = "simple_reference_v3"
 
 
 env = make_env(raw_env)

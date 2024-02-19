@@ -1,4 +1,7 @@
+from typing import Union
+
 import gymnasium
+import numpy as np
 from gymnasium.utils import seeding
 
 from pettingzoo import ParallelEnv
@@ -20,18 +23,23 @@ def get_type(agent):
     return agent[: agent.rfind("_")]
 
 
-class parallel_env(ParallelEnv):
-
+class parallel_env(ParallelEnv[str, np.ndarray, Union[int, None]]):
     metadata = {"render_modes": ["human"], "name": "generated_agents_parallel_v0"}
 
     def __init__(self, max_cycles=100, render_mode=None):
         super().__init__()
         self._obs_spaces = {}
         self._act_spaces = {}
+
+        # dummy state space, not actually used
+        self.state_space = gymnasium.spaces.MultiDiscrete([10, 10])
+        self._state = self.state_space.sample()
+
         self.types = []
         self._agent_counters = {}
         self.max_cycles = max_cycles
-        self.seed()
+        self.rng_seed = None
+        self._seed()
         self.render_mode = render_mode
         for i in range(3):
             self.add_type()
@@ -42,6 +50,9 @@ class parallel_env(ParallelEnv):
     def action_space(self, agent):
         return self._act_spaces[get_type(agent)]
 
+    def state(self) -> np.ndarray:
+        return self._state
+
     def observe(self, agent):
         return self.observation_space(agent).sample()
 
@@ -51,6 +62,8 @@ class parallel_env(ParallelEnv):
         obs_size = self.np_random.integers(10, 50)
         obs_space = gymnasium.spaces.Box(low=0, high=1, shape=(obs_size,))
         act_space = gymnasium.spaces.Discrete(num_actions)
+        obs_space.seed(self.rng_seed)
+        act_space.seed(self.rng_seed)
         new_type = f"type{type_id}"
         self.types.append(new_type)
         self._obs_spaces[new_type] = obs_space
@@ -65,16 +78,40 @@ class parallel_env(ParallelEnv):
         self.agents.append(agent_name)
         return agent_name
 
-    def reset(self, seed=None, return_info=False, options=None):
+    def reset(self, seed=None, options=None):
+        self.rng_seed = seed
+
         if seed is not None:
-            self.seed(seed=seed)
-        self.agents = []
+            self._seed(seed=seed)
         self.num_steps = 0
+
+        # Reset spaces and types
+        self._obs_spaces = {}
+        self._act_spaces = {}
+        self.state_space = gymnasium.spaces.MultiDiscrete([10, 10])
+        self._state = self.state_space.sample()
+
+        self.types = []
+        self._agent_counters = {}
+        for i in range(3):
+            self.add_type()
+
+        # Add agents
+        self.agents = []
         for i in range(5):
             self.add_agent(self.np_random.choice(self.types))
-        return {agent: self.observe(agent) for agent in self.agents}
 
-    def seed(self, seed=None):
+        # seed observation and action spaces
+        for i, agent in enumerate(self.agents):
+            self.observation_space(agent).seed(seed)
+        for i, agent in enumerate(self.agents):
+            self.action_space(agent).seed(seed)
+
+        return {agent: self.observe(agent) for agent in self.agents}, {
+            agent: {} for agent in self.agents
+        }
+
+    def _seed(self, seed=None):
         self.np_random, _ = seeding.np_random(seed)
 
     def step(self, actions):

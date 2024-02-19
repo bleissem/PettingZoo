@@ -1,4 +1,4 @@
-# noqa
+# noqa: D212, D415
 """
 # Simple Push
 
@@ -9,7 +9,7 @@
 
 This environment is part of the <a href='..'>MPE environments</a>. Please read that page first for general information.
 
-| Import             | `from pettingzoo.mpe import simple_push_v2` |
+| Import             | `from pettingzoo.mpe import simple_push_v3` |
 |--------------------|---------------------------------------------|
 | Actions            | Discrete/Continuous                         |
 | Parallel API       | Yes                                         |
@@ -38,7 +38,7 @@ Adversary action space: `[no_action, move_left, move_right, move_down, move_up]`
 ### Arguments
 
 ``` python
-simple_push_v2.env(max_cycles=25, continuous_actions=False)
+simple_push_v3.env(max_cycles=25, continuous_actions=False)
 ```
 
 
@@ -50,26 +50,31 @@ simple_push_v2.env(max_cycles=25, continuous_actions=False)
 import numpy as np
 from gymnasium.utils import EzPickle
 
+from pettingzoo.mpe._mpe_utils.core import Agent, Landmark, World
+from pettingzoo.mpe._mpe_utils.scenario import BaseScenario
+from pettingzoo.mpe._mpe_utils.simple_env import SimpleEnv, make_env
 from pettingzoo.utils.conversions import parallel_wrapper_fn
-
-from .._mpe_utils.core import Agent, Landmark, World
-from .._mpe_utils.scenario import BaseScenario
-from .._mpe_utils.simple_env import SimpleEnv, make_env
 
 
 class raw_env(SimpleEnv, EzPickle):
     def __init__(self, max_cycles=25, continuous_actions=False, render_mode=None):
-        EzPickle.__init__(self, max_cycles, continuous_actions, render_mode)
+        EzPickle.__init__(
+            self,
+            max_cycles=max_cycles,
+            continuous_actions=continuous_actions,
+            render_mode=render_mode,
+        )
         scenario = Scenario()
         world = scenario.make_world()
-        super().__init__(
+        SimpleEnv.__init__(
+            self,
             scenario=scenario,
             world=world,
             render_mode=render_mode,
             max_cycles=max_cycles,
             continuous_actions=continuous_actions,
         )
-        self.metadata["name"] = "simple_push_v2"
+        self.metadata["name"] = "simple_push_v3"
 
 
 env = make_env(raw_env)

@@ -59,7 +59,7 @@ class SimpleEnv(AECEnv):
         # Set up the drawing window
 
         self.renderOn = False
-        self.seed()
+        self._seed()
 
         self.max_cycles = max_cycles
         self.scenario = scenario
@@ -126,7 +126,7 @@ class SimpleEnv(AECEnv):
     def action_space(self, agent):
         return self.action_spaces[agent]
 
-    def seed(self, seed=None):
+    def _seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
 
     def observe(self, agent):
@@ -143,9 +143,9 @@ class SimpleEnv(AECEnv):
         )
         return np.concatenate(states, axis=None)
 
-    def reset(self, seed=None, return_info=False, options=None):
+    def reset(self, seed=None, options=None):
         if seed is not None:
-            self.seed(seed=seed)
+            self._seed(seed=seed)
         self.scenario.reset_world(self.world, self.np_random)
 
         self.agents = self.possible_agents[:]
@@ -205,8 +205,9 @@ class SimpleEnv(AECEnv):
             agent.action.u = np.zeros(self.world.dim_p)
             if self.continuous_actions:
                 # Process continuous action as in OpenAI MPE
-                agent.action.u[0] += action[0][1] - action[0][2]
-                agent.action.u[1] += action[0][3] - action[0][4]
+                # Note: this ordering preserves the same movement direction as in the discrete case
+                agent.action.u[0] += action[0][2] - action[0][1]
+                agent.action.u[1] += action[0][4] - action[0][3]
             else:
                 # process discrete action
                 if action[0] == 1:
@@ -265,6 +266,7 @@ class SimpleEnv(AECEnv):
     def enable_render(self, mode="human"):
         if not self.renderOn and mode == "human":
             self.screen = pygame.display.set_mode(self.screen.get_size())
+            self.clock = pygame.time.Clock()
             self.renderOn = True
 
     def render(self):
@@ -276,15 +278,14 @@ class SimpleEnv(AECEnv):
 
         self.enable_render(self.render_mode)
 
-        observation = np.array(pygame.surfarray.pixels3d(self.screen))
-        if self.render_mode == "human":
-            self.draw()
+        self.draw()
+        if self.render_mode == "rgb_array":
+            observation = np.array(pygame.surfarray.pixels3d(self.screen))
+            return np.transpose(observation, axes=(1, 0, 2))
+        elif self.render_mode == "human":
             pygame.display.flip()
-        return (
-            np.transpose(observation, axes=(1, 0, 2))
-            if self.render_mode == "rgb_array"
-            else None
-        )
+            self.clock.tick(self.metadata["render_fps"])
+            return
 
     def draw(self):
         # clear screen
@@ -340,7 +341,6 @@ class SimpleEnv(AECEnv):
                 text_line += 1
 
     def close(self):
-        if self.renderOn:
-            pygame.event.pump()
-            pygame.display.quit()
-            self.renderOn = False
+        if self.screen is not None:
+            pygame.quit()
+            self.screen = None

@@ -7,9 +7,13 @@ import pygame
 from gymnasium import spaces
 from gymnasium.utils import seeding
 
-from .utils import agent_utils, two_d_maps
-from .utils.agent_layer import AgentLayer
-from .utils.controllers import PursuitPolicy, RandomPolicy, SingleActionPolicy
+from pettingzoo.sisl.pursuit.utils import agent_utils, two_d_maps
+from pettingzoo.sisl.pursuit.utils.agent_layer import AgentLayer
+from pettingzoo.sisl.pursuit.utils.controllers import (
+    PursuitPolicy,
+    RandomPolicy,
+    SingleActionPolicy,
+)
 
 
 class Pursuit:
@@ -59,7 +63,7 @@ class Pursuit:
         self.y_size = y_size
         self.map_matrix = two_d_maps.rectangle_map(self.x_size, self.y_size)
         self.max_cycles = max_cycles
-        self.seed()
+        self._seed()
 
         self.shared_reward = shared_reward
         self.local_ratio = 1.0 - float(self.shared_reward)
@@ -145,12 +149,12 @@ class Pursuit:
         self.surround = surround
 
         self.render_mode = render_mode
+        self.screen = None
         self.constraint_window = constraint_window
 
         self.surround_mask = np.array([[-1, 0], [1, 0], [0, 1], [0, -1]])
 
         self.model_state = np.zeros((4,) + self.map_matrix.shape, dtype=np.float32)
-        self.renderOn = False
         self.pixel_scale = 30
 
         self.frames = 0
@@ -163,11 +167,9 @@ class Pursuit:
         return self.action_spaces[agent]
 
     def close(self):
-        if self.renderOn:
-            pygame.event.pump()
-            pygame.display.quit()
+        if self.screen is not None:
             pygame.quit()
-            self.renderOn = False
+            self.screen = None
 
     #################################################################
     # The functions below are the interface with MultiAgentSiulator #
@@ -177,7 +179,7 @@ class Pursuit:
     def agents(self):
         return self.pursuers
 
-    def seed(self, seed=None):
+    def _seed(self, seed=None):
         self.np_random, seed_ = seeding.np_random(seed)
         try:
             policies = [self.evader_controller, self.pursuer_controller]
@@ -236,7 +238,6 @@ class Pursuit:
         self.model_state[2] = self.evader_layer.get_state_matrix()
 
         self.frames = 0
-        self.renderOn = False
 
         return self.safely_observe(0)
 
@@ -347,7 +348,7 @@ class Pursuit:
             x, y = self.pursuer_layer.get_position(i)
             agent_positions[(x, y)] += 1
 
-        for (x, y) in evader_positions:
+        for x, y in evader_positions:
             (pos_x, pos_y) = (
                 self.pixel_scale * x + self.pixel_scale // 2,
                 self.pixel_scale * y + self.pixel_scale // 2,
@@ -366,7 +367,7 @@ class Pursuit:
 
             self.screen.blit(text, (pos_x, pos_y))
 
-        for (x, y) in agent_positions:
+        for x, y in agent_positions:
             (pos_x, pos_y) = (
                 self.pixel_scale * x + self.pixel_scale // 2,
                 self.pixel_scale * y + self.pixel_scale // 2,
@@ -392,18 +393,18 @@ class Pursuit:
             )
             return
 
-        if not self.renderOn:
+        if self.screen is None:
             if self.render_mode == "human":
                 pygame.display.init()
                 self.screen = pygame.display.set_mode(
                     (self.pixel_scale * self.x_size, self.pixel_scale * self.y_size)
                 )
+                pygame.display.set_caption("Pursuit")
             else:
                 self.screen = pygame.Surface(
                     (self.pixel_scale * self.x_size, self.pixel_scale * self.y_size)
                 )
 
-            self.renderOn = True
         self.draw_model_state()
 
         self.draw_pursuers_observations()
@@ -416,7 +417,8 @@ class Pursuit:
         new_observation = np.copy(observation)
         del observation
         if self.render_mode == "human":
-            pygame.display.flip()
+            pygame.event.pump()
+            pygame.display.update()
         return (
             np.transpose(new_observation, axes=(1, 0, 2))
             if self.render_mode == "rgb_array"

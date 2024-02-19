@@ -16,7 +16,7 @@ from gymnasium import spaces
 from gymnasium.utils import seeding
 from pygame import gfxdraw
 
-from .._utils import Agent
+from pettingzoo.sisl._utils import Agent
 
 MAX_AGENTS = 40
 
@@ -214,7 +214,6 @@ class BipedalWalker(Agent):
         self.lidar = [LidarCallback() for _ in range(10)]
 
     def apply_action(self, action):
-
         self.joints[0].motorSpeed = float(SPEED_HIP * np.sign(action[0]))
         self.joints[0].maxMotorTorque = float(
             MOTORS_TORQUE * np.clip(np.abs(action[0]), 0, 1)
@@ -288,7 +287,6 @@ class BipedalWalker(Agent):
 
 
 class MultiWalkerEnv:
-
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": FPS}
 
     hardcore = False
@@ -332,11 +330,9 @@ class MultiWalkerEnv:
         self.remove_on_fall = remove_on_fall
         self.terrain_length = terrain_length
         self.seed_val = None
-        self.seed()
+        self._seed()
         self.setup()
         self.screen = None
-        self.isopen = True
-        self.agent_list = list(range(self.n_walkers))
         self.last_rewards = [0 for _ in range(self.n_walkers)]
         self.last_dones = [False for _ in range(self.n_walkers)]
         self.last_obs = [None for _ in range(self.n_walkers)]
@@ -362,14 +358,19 @@ class MultiWalkerEnv:
             BipedalWalker(self.world, init_x=sx, init_y=init_y, seed=self.seed_val)
             for sx in self.start_x
         ]
-        self.num_agents = len(self.walkers)
         self.observation_space = [agent.observation_space for agent in self.walkers]
         self.action_space = [agent.action_space for agent in self.walkers]
+        self.state_space = spaces.Box(
+            low=-np.float32(np.inf),
+            high=+np.float32(np.inf),
+            shape=(
+                self.n_walkers * 24 + 3,
+            ),  # 24 is the observation space of each walker, 3 is the package observation space
+            dtype=np.float32,
+        )
 
         self.package_scale = self.n_walkers / 1.75
         self.package_length = PACKAGE_LENGTH / SCALE * self.package_scale
-
-        self.total_agents = self.n_walkers
 
         self.prev_shaping = np.zeros(self.n_walkers)
         self.prev_package_shaping = 0.0
@@ -378,7 +379,7 @@ class MultiWalkerEnv:
     def agents(self):
         return self.walkers
 
-    def seed(self, seed=None):
+    def _seed(self, seed=None):
         self.np_random, seed_ = seeding.np_random(seed)
         self.seed_val = seed_
         for walker in getattr(self, "walkers", []):
@@ -401,7 +402,7 @@ class MultiWalkerEnv:
     def close(self):
         if self.screen is not None:
             pygame.quit()
-            self.isopen = False
+            self.screen = None
 
     def reset(self):
         self.setup()
@@ -537,7 +538,7 @@ class MultiWalkerEnv:
         )
 
     def get_last_dones(self):
-        return dict(zip(self.agent_list, self.last_dones))
+        return dict(zip(list(range(self.n_walkers)), self.last_dones))
 
     def get_last_obs(self):
         return dict(
@@ -552,6 +553,20 @@ class MultiWalkerEnv:
         o = np.array(o, dtype=np.float32)
         return o
 
+    def state(self):
+        all_walker_obs = self.get_last_obs()
+        all_walker_obs = np.array(list(all_walker_obs.values())).flatten()
+        package_obs = np.array(
+            [
+                self.package.position.x,
+                self.package.position.y,
+                self.package.angle,
+            ]
+        )
+        global_state = np.concatenate((all_walker_obs, package_obs)).astype(np.float32)
+
+        return global_state
+
     def render(self, close=False):
         if close:
             self.close()
@@ -562,6 +577,7 @@ class MultiWalkerEnv:
         if self.screen is None:
             pygame.init()
             self.screen = pygame.display.set_mode((VIEWPORT_W, VIEWPORT_H))
+            pygame.display.set_caption("Multiwalker")
 
         self.surf = pygame.Surface(
             (VIEWPORT_W + self.scroll * render_scale + offset, VIEWPORT_H)
@@ -694,7 +710,8 @@ class MultiWalkerEnv:
         self.surf = pygame.transform.flip(self.surf, False, True)
         self.screen.blit(self.surf, (-self.scroll * render_scale - offset, 0))
         if self.render_mode == "human":
-            pygame.display.flip()
+            pygame.event.pump()
+            pygame.display.update()
         elif self.render_mode == "rgb_array":
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(self.screen)), axes=(1, 0, 2)

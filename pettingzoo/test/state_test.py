@@ -1,7 +1,59 @@
+from __future__ import annotations
+
+from pettingzoo.utils.env import AECEnv, ParallelEnv
+
+"""Tests that the environment's state() and state_space() methods work as expected."""
 import warnings
 
 import gymnasium
 import numpy as np
+
+try:
+    """Allows doctests to be run using pytest"""
+    import pytest
+
+    from pettingzoo.test.example_envs import (
+        generated_agents_env_v0,
+        generated_agents_parallel_v0,
+    )
+
+    @pytest.fixture
+    def env():
+        return generated_agents_env_v0.env()
+
+    @pytest.fixture
+    def parallel_env():
+        return generated_agents_parallel_v0.parallel_env()
+
+    @pytest.fixture
+    def num_cycles():
+        return 1000
+
+except ModuleNotFoundError:
+    pass
+
+env_pos_inf_state = [
+    "simple_adversary_v3",
+    "simple_reference_v3",
+    "simple_spread_v3",
+    "simple_tag_v3",
+    "simple_world_comm_v3",
+    "simple_crypto_v3",
+    "simple_push_v3",
+    "simple_speaker_listener_v4",
+    "simple_v3",
+]
+env_neg_inf_state = [
+    "simple_adversary_v3",
+    "simple_reference_v3",
+    "simple_spread_v3",
+    "simple_tag_v3",
+    "simple_world_comm_v3",
+    "simple_crypto_v3",
+    "simple_push_v3",
+    "simple_speaker_listener_v4",
+    "simple_v3",
+]
 
 
 def test_state_space(env):
@@ -17,11 +69,17 @@ def test_state_space(env):
         )
 
     if isinstance(env.state_space, gymnasium.spaces.Box):
-        if np.any(np.equal(env.state_space.low, -np.inf)):
+        if (
+            np.any(np.equal(env.state_space.low, -np.inf))
+            and str(env.unwrapped) not in env_neg_inf_state
+        ):
             warnings.warn(
                 "Environment's minimum state space value is -infinity. This is probably too low."
             )
-        if np.any(np.equal(env.state_space.high, np.inf)):
+        if (
+            np.any(np.equal(env.state_space.high, np.inf))
+            and str(env.unwrapped) not in env_pos_inf_state
+        ):
             warnings.warn(
                 "Environment's maximum state space value is infinity. This is probably too high"
             )
@@ -43,8 +101,9 @@ def test_state_space(env):
             ), "Environment's state_space.high and state_space have different shapes"
 
 
-def test_state(env, num_cycles):
-    env.reset()
+def test_state(env: AECEnv, num_cycles: int, seed: int | None = 0):
+    graphical_envs = ["knights_archers_zombies_v10"]
+    env.reset(seed=seed)
     state_0 = env.state()
     for agent in env.agent_iter(env.num_agents * num_cycles):
         observation, reward, terminated, truncated, info = env.last(observe=False)
@@ -58,46 +117,52 @@ def test_state(env, num_cycles):
         assert env.state_space.contains(
             new_state
         ), "Environment's state is outside of it's state space"
-        if isinstance(new_state, np.ndarray):
-            if np.isinf(new_state).any():
-                warnings.warn(
-                    "State contains infinity (np.inf) or negative infinity (-np.inf)"
-                )
-            if np.isnan(new_state).any():
-                warnings.warn("State contains NaNs")
-            if len(new_state.shape) > 3:
-                warnings.warn("State has more than 3 dimensions")
-            if new_state.shape == (0,):
-                assert False, "State can not be an empty array"
-            if new_state.shape == (1,):
-                warnings.warn("State is a single number")
-            if not isinstance(new_state, state_0.__class__):
-                warnings.warn("State between Observations are different classes")
-            if (new_state.shape != state_0.shape) and (
-                len(new_state.shape) == len(state_0.shape)
-            ):
-                warnings.warn("States are different shapes")
-            if len(new_state.shape) != len(state_0.shape):
-                warnings.warn("States have different number of dimensions")
-            if not np.can_cast(new_state.dtype, np.dtype("float64")):
-                warnings.warn("State numpy array is not a numeric dtype")
-            if np.array_equal(new_state, np.zeros(new_state.shape)):
-                warnings.warn("State numpy array is all zeros.")
-            if not np.all(new_state >= 0) and (
+        if (
+            not isinstance(new_state, np.ndarray)
+            and str(env.unwrapped) not in graphical_envs
+        ):
+            warnings.warn("State is not NumPy array")
+            return
+        if np.isinf(new_state).any():
+            warnings.warn(
+                "State contains infinity (np.inf) or negative infinity (-np.inf)"
+            )
+        if np.isnan(new_state).any():
+            warnings.warn("State contains NaNs")
+        if len(new_state.shape) > 3:
+            warnings.warn("State has more than 3 dimensions")
+        if new_state.shape == (0,):
+            assert False, "State can not be an empty array"
+        if new_state.shape == (1,):
+            warnings.warn("State is a single number")
+        if not isinstance(new_state, state_0.__class__):
+            warnings.warn("State between Observations are different classes")
+        if (new_state.shape != state_0.shape) and (
+            len(new_state.shape) == len(state_0.shape)
+        ):
+            warnings.warn("States are different shapes")
+        if len(new_state.shape) != len(state_0.shape):
+            warnings.warn("States have different number of dimensions")
+        if not np.can_cast(new_state.dtype, np.dtype("float64")):
+            warnings.warn("State numpy array is not a numeric dtype")
+        if np.array_equal(new_state, np.zeros(new_state.shape)):
+            warnings.warn("State numpy array is all zeros.")
+        if (
+            not np.all(new_state >= 0)
+            and (
                 (len(new_state.shape) == 2)
                 or (len(new_state.shape) == 3 and new_state.shape[2] == 1)
                 or (len(new_state.shape) == 3 and new_state.shape[2] == 3)
-            ):
-                warnings.warn(
-                    "The state contains negative numbers and is in the shape of a graphical observation. This might be a bad thing."
-                )
-        else:
-            warnings.warn("State is not NumPy array")
+            )
+            and str(env.unwrapped) not in graphical_envs
+        ):
+            warnings.warn(
+                "The state contains negative numbers and is in the shape of a graphical observation. This might be a bad thing."
+            )
 
 
-def test_parallel_env(parallel_env):
-
-    parallel_env.reset()
+def test_parallel_env(parallel_env: ParallelEnv, seed: int | None = 0):
+    parallel_env.reset(seed=seed)
 
     assert isinstance(
         parallel_env.state_space, gymnasium.spaces.Space

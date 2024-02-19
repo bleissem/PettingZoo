@@ -1,4 +1,4 @@
-# noqa
+# noqa: D212, D415
 """
 # Maze Craze
 
@@ -42,7 +42,7 @@ Some environment parameters are common to all Atari environments and are describ
 Parameters specific to Maze Craze are
 
 ``` python
-maze_craze.env(game_version="robbers", visibilty_level=0)
+maze_craze_v3.env(game_version="robbers", visibilty_level=0)
 ```
 
 `game_version`:  Possibilities are "robbers", "race", "capture", corresponding to the 3 game versions described above
@@ -88,7 +88,11 @@ import os
 import warnings
 from glob import glob
 
-from ..base_atari_env import BaseAtariEnv, base_env_wrapper_fn, parallel_wrapper_fn
+from pettingzoo.atari.base_atari_env import (
+    BaseAtariEnv,
+    base_env_wrapper_fn,
+    parallel_wrapper_fn,
+)
 
 avaliable_versions = {
     "robbers": 2,

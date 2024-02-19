@@ -40,6 +40,37 @@ The Atari environments are based off the [Arcade Learning Environment](https://g
     :file: atari/list.html
 ```
 
+### Installation
+
+The unique dependencies for this set of environments can be installed via:
+
+````bash
+pip install 'pettingzoo[atari]'
+````
+
+Install ROMs using [AutoROM](https://github.com/Farama-Foundation/AutoROM), or specify the path to your Atari rom using the `rom_path` argument (see [Common Parameters](#common-parameters)).
+
+### Usage
+
+To launch a [Space Invaders](/environments/atari/space_invaders/) environment with random agents:
+```python
+from pettingzoo.atari import space_invaders_v2
+
+env = space_invaders_v2.env(render_mode="human")
+env.reset(seed=42)
+
+for agent in env.agent_iter():
+    observation, reward, termination, truncation, info = env.last()
+
+    if termination or truncation:
+        action = None
+    else:
+        action = env.action_space(agent).sample() # this is where you would insert your policy
+
+    env.step(action)
+env.close()
+```
+
 ### Games Overview
 
 Most games have two players, with the exception of Warlords and a couple of Pong variations which have four players.
@@ -63,9 +94,9 @@ Here is some example usage for the Atari preprocessing:
 
 ``` python
 import supersuit
-from pettingzoo.atari import space_invaders_v1
+from pettingzoo.atari import space_invaders_v2
 
-env = space_invaders_v1.env()
+env = space_invaders_v2.env()
 
 # as per openai baseline's MaxAndSKip wrapper, maxes over the last 2 frames
 # to deal with frame flickering
@@ -90,7 +121,10 @@ env = supersuit.frame_stack_v1(env, 4)
 All the Atari environments have the following environment parameters:
 
 ``` python
-<atari_game>.env(obs_type='rgb_image', full_action_space=True, max_cycles=100000, auto_rom_install_path=None)
+# using space invaders as an example, but replace with any atari game
+from pettingzoo.atari import space_invaders_v2
+
+space_invaders_v2.env(obs_type='rgb_image', full_action_space=True, max_cycles=100000, auto_rom_install_path=None)
 ```
 
 `obs_type`:  There are three possible values for this parameter:

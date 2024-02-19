@@ -1,4 +1,4 @@
-# noqa
+# noqa: D212, D415
 """
 # Simple World Comm
 
@@ -9,7 +9,7 @@
 
 This environment is part of the <a href='..'>MPE environments</a>. Please read that page first for general information.
 
-| Import             | `from pettingzoo.mpe import simple_world_comm_v2`                                   |
+| Import             | `from pettingzoo.mpe import simple_world_comm_v3`                                   |
 |--------------------|-------------------------------------------------------------------------------------|
 | Actions            | Discrete/Continuous                                                                 |
 | Parallel API       | Yes                                                                                 |
@@ -51,7 +51,7 @@ Adversary leader continuous action space: `[no_action, move_left, move_right, mo
 ### Arguments
 
 ``` python
-simple_world_comm.env(num_good=2, num_adversaries=4, num_obstacles=1,
+simple_world_comm_v3.env(num_good=2, num_adversaries=4, num_obstacles=1,
                 num_food=2, max_cycles=25, num_forests=2, continuous_actions=False)
 ```
 
@@ -76,11 +76,10 @@ simple_world_comm.env(num_good=2, num_adversaries=4, num_obstacles=1,
 import numpy as np
 from gymnasium.utils import EzPickle
 
+from pettingzoo.mpe._mpe_utils.core import Agent, Landmark, World
+from pettingzoo.mpe._mpe_utils.scenario import BaseScenario
+from pettingzoo.mpe._mpe_utils.simple_env import SimpleEnv, make_env
 from pettingzoo.utils.conversions import parallel_wrapper_fn
-
-from .._mpe_utils.core import Agent, Landmark, World
-from .._mpe_utils.scenario import BaseScenario
-from .._mpe_utils.simple_env import SimpleEnv, make_env
 
 
 class raw_env(SimpleEnv, EzPickle):
@@ -97,26 +96,28 @@ class raw_env(SimpleEnv, EzPickle):
     ):
         EzPickle.__init__(
             self,
-            num_good,
-            num_adversaries,
-            num_obstacles,
-            max_cycles,
-            num_forests,
-            continuous_actions,
-            render_mode,
+            num_good=num_good,
+            num_adversaries=num_adversaries,
+            num_obstacles=num_obstacles,
+            num_food=num_food,
+            max_cycles=max_cycles,
+            num_forests=num_forests,
+            continuous_actions=continuous_actions,
+            render_mode=render_mode,
         )
         scenario = Scenario()
         world = scenario.make_world(
             num_good, num_adversaries, num_obstacles, num_food, num_forests
         )
-        super().__init__(
+        SimpleEnv.__init__(
+            self,
             scenario=scenario,
             world=world,
             render_mode=render_mode,
             max_cycles=max_cycles,
             continuous_actions=continuous_actions,
         )
-        self.metadata["name"] = "simple_world_comm_v2"
+        self.metadata["name"] = "simple_world_comm_v3"
 
 
 env = make_env(raw_env)

@@ -1,4 +1,4 @@
-# noqa
+# noqa: D212, D415
 """
 # Multiwalker
 
@@ -78,7 +78,7 @@ This table enumerates the observation space:
 
 ``` python
 multiwalker_v9.env(n_walkers=3, position_noise=1e-3, angle_noise=1e-3, forward_reward=1.0, terminate_reward=-100.0, fall_reward=-10.0, shared_reward=True,
-terminate_on_fall=True, remove_on_fall=True, terrain_legth=200, max_cycles=500)
+terminate_on_fall=True, remove_on_fall=True, terrain_length=200, max_cycles=500)
 ```
 
 
@@ -123,11 +123,10 @@ import numpy as np
 from gymnasium.utils import EzPickle
 
 from pettingzoo import AECEnv
+from pettingzoo.sisl.multiwalker.multiwalker_base import FPS
+from pettingzoo.sisl.multiwalker.multiwalker_base import MultiWalkerEnv as _env
 from pettingzoo.utils import agent_selector, wrappers
 from pettingzoo.utils.conversions import parallel_wrapper_fn
-
-from .multiwalker_base import FPS
-from .multiwalker_base import MultiWalkerEnv as _env
 
 
 def env(**kwargs):
@@ -141,7 +140,6 @@ parallel_env = parallel_wrapper_fn(env)
 
 
 class raw_env(AECEnv, EzPickle):
-
     metadata = {
         "render_modes": ["human", "rgb_array"],
         "name": "multiwalker_v9",
@@ -153,13 +151,16 @@ class raw_env(AECEnv, EzPickle):
         EzPickle.__init__(self, *args, **kwargs)
         self.env = _env(*args, **kwargs)
         self.render_mode = self.env.render_mode
-        self.agents = ["walker_" + str(r) for r in range(self.env.num_agents)]
+        self.agents = ["walker_" + str(r) for r in range(self.env.n_walkers)]
         self.possible_agents = self.agents[:]
-        self.agent_name_mapping = dict(zip(self.agents, list(range(self.num_agents))))
+        self.agent_name_mapping = dict(
+            zip(self.agents, list(range(self.env.n_walkers)))
+        )
         self._agent_selector = agent_selector(self.agents)
         # spaces
         self.action_spaces = dict(zip(self.agents, self.env.action_space))
         self.observation_spaces = dict(zip(self.agents, self.env.observation_space))
+        self.state_space = self.env.state_space
         self.steps = 0
 
     def observation_space(self, agent):
@@ -168,15 +169,12 @@ class raw_env(AECEnv, EzPickle):
     def action_space(self, agent):
         return self.action_spaces[agent]
 
-    def seed(self, seed=None):
-        self.env.seed(seed)
-
     def convert_to_dict(self, list_of_list):
         return dict(zip(self.agents, list_of_list))
 
-    def reset(self, seed=None, return_info=False, options=None):
+    def reset(self, seed=None, options=None):
         if seed is not None:
-            self.seed(seed=seed)
+            self.env._seed(seed=seed)
         self.env.reset()
         self.steps = 0
         self.agents = self.possible_agents[:]
@@ -193,6 +191,9 @@ class raw_env(AECEnv, EzPickle):
 
     def render(self):
         return self.env.render()
+
+    def state(self):
+        return self.env.state()
 
     def observe(self, agent):
         return self.env.observe(self.agent_name_mapping[agent])
@@ -239,3 +240,6 @@ class raw_env(AECEnv, EzPickle):
         self._accumulate_rewards()
         self._deads_step_first()
         self.steps += 1
+
+        if self.render_mode == "human":
+            self.render()
